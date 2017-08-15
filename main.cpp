@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <set>
 
 using namespace std;
 
@@ -12,14 +13,14 @@ private:
         private:
             char letter;
             string definition;
-            map<char, node *> *childern;
+            map<char, node *> *children;
             bool terminal;
         public:
             node(char letter, string definition, bool terminal) {
                 this->letter = letter;
                 this->definition = definition;
                 this->terminal = terminal;
-                this->childern = new map<char, node *>();
+                this->children = new map<char, node *>();
             };
 
             char getLetter() { return this->letter; };
@@ -34,15 +35,32 @@ private:
 
             bool getTerminal() { return this->terminal; };
 
-            void addChild(char letter, node *child) { this->childern->insert(pair<char, node *>(letter, child)); };
+            set<node *> getChildren() {
+                set<node *> children;
+                map<char, node *>::iterator itr;
+                for (itr = this->children->begin(); itr != this->children->end(); itr++) {
+                    children.insert(itr->second);
+                }
+                return children;
+            };
 
-            node *getChild(char letter) { return this->childern->at(letter); };
+            void addChild(char letter, node *child) { this->children->insert(pair<char, node *>(letter, child)); };
 
-            void removeChild(char letter) { this->childern->erase(letter); };
+            node *getChild(char letter) {
+                node *child;
+                try {
+                    child = this->children->at(letter);
+                } catch (...) {
+                    return NULL;
+                }
+                return child;
+            };
 
-            bool ifNoChild() { return this->childern->empty(); };
+            void removeChild(char letter) { this->children->erase(letter); };
 
-            int getTotalChildern() { return this->childern->size(); };
+            bool ifNoChild() { return this->children->empty(); };
+
+            int getTotalChildren() { return this->children->size(); };
         };
 
         int totalWords;
@@ -61,7 +79,6 @@ private:
 
             char ch = word[0];
             string remainingWord = word.substr(1);
-
             node *child = parent->getChild(ch);
             if (child == NULL) {
                 child = new node(ch, "\0", false);
@@ -129,6 +146,40 @@ private:
                 parent->removeChild(ch);
             }
         };
+
+        node *getPrefixEnd(node *parent, string prefix) {
+            if (prefix.length() == 0) {
+                return parent;
+            }
+
+            char ch = prefix[0];
+            string remainingPrefix = prefix.substr(1);
+
+            node *child = parent->getChild(ch);
+            if (child == NULL) {
+                return NULL;
+            }
+
+            return this->getPrefixEnd(child, remainingPrefix);
+        };
+
+        set<string> wordsFrom(node *treeNode, string word, set<string> words) {
+            if (treeNode == NULL) {
+                return words;
+            }
+
+            set<node *> children = treeNode->getChildren();
+
+            for (auto child : children) {
+                char ch = child->getLetter();
+                string currentWord = word + ch;
+                if (child->getTerminal()) {
+                    words.insert(words.end(), currentWord);
+                }
+                words = this->wordsFrom(child, currentWord, words);
+            }
+            return words;
+        };
     public:
         trie() {
             this->root = new node('\0', "\0", false);
@@ -146,6 +197,13 @@ private:
         string getWordDefinition(string word) { return this->getWordDefinition(this->root, word); };
 
         void removeWord(string word) { this->removeWord(this->root, word); };
+
+        set<string> wordsFrom(string prefix) {
+            node *prefixEnd = this->getPrefixEnd(this->root, prefix);
+            if (prefixEnd == NULL)
+                return set<string>();
+            return this->wordsFrom(prefixEnd, prefix, set<string>());
+        };
     };
 
     trie *tree;
@@ -194,9 +252,53 @@ public:
         cout << "Definition: ";
         cout << this->tree->getWordDefinition(word);
     };
+
+    void prefixSearch() {
+        string prefix;
+        cout << "Prefix: ";
+        cin >> prefix;
+        set<string> results = this->tree->wordsFrom(prefix);
+
+        for (auto word : results) {
+            cout << word << endl;
+        }
+    };
 };
 
 int main() {
     dictionary myDictionary;
-    return 0;
+    menu:
+    cout << "1) Add Word\n";
+    cout << "2) Update Word\n";
+    cout << "3) Search Word\n";
+    cout << "4) Remove Word\n";
+    cout << "5) Prefix Search\n";
+    cout << "6) Exit\n";
+
+    int opt;
+    option:
+    cin >> opt;
+    switch (opt) {
+        case 1:
+            myDictionary.add();
+            break;
+        case 2:
+            myDictionary.update();
+            break;
+        case 3:
+            myDictionary.search();
+            break;
+        case 4:
+            myDictionary.remove();
+            break;
+        case 5:
+            myDictionary.prefixSearch();
+            break;
+        case 6:
+            exit(0);
+        default:
+            goto option;
+    }
+    cout << endl;
+    goto menu;
 }
